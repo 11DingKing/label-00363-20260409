@@ -61,29 +61,42 @@ export function useBookmarks() {
   }, [])
 
   const addCategory = useCallback((category: Omit<Category, 'id' | 'order'>) => {
+    const maxOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order)) : -1
     const newCategory: Category = {
       ...category,
       id: uuidv4(),
-      order: categories.length,
+      order: maxOrder + 1,
     }
     setCategories(prev => [...prev, newCategory])
     return newCategory
-  }, [categories.length])
+  }, [categories])
 
   const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
   }, [])
 
   const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id))
-    setBookmarks(prev => prev.map(b => b.categoryId === id ? { ...b, categoryId: 'default' } : b))
+    setCategories(prev => {
+      const remaining = prev.filter(c => c.id !== id)
+      if (remaining.length > 0) {
+        const minOrderCategory = remaining.reduce((min, cat) => 
+          cat.order < min.order ? cat : min
+        )
+        setBookmarks(prevBookmarks => 
+          prevBookmarks.map(b => b.categoryId === id ? { ...b, categoryId: minOrderCategory.id } : b)
+        )
+      } else {
+        setBookmarks(prevBookmarks => prevBookmarks.filter(b => b.categoryId !== id))
+      }
+      return remaining
+    })
   }, [])
 
   const importFromExtension = useCallback((data: { bookmarks: Bookmark[], categories?: Category[] }) => {
     if (data.bookmarks) {
       setBookmarks(prev => {
-        const existingUrls = new Set(prev.map(b => b.url))
-        const newBookmarks = data.bookmarks.filter(b => !existingUrls.has(b.url))
+        const existingKeys = new Set(prev.map(b => `${b.url}|${b.categoryId}`))
+        const newBookmarks = data.bookmarks.filter(b => !existingKeys.has(`${b.url}|${b.categoryId}`))
         return [...prev, ...newBookmarks]
       })
     }
