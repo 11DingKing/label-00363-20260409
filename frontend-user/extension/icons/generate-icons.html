@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>生成扩展图标</title>
+</head>
+<body>
+  <h1>扩展图标生成器</h1>
+  <p>点击按钮下载图标文件</p>
+  <canvas id="canvas"></canvas>
+  <br><br>
+  <button onclick="download(16)">下载 icon16.png</button>
+  <button onclick="download(48)">下载 icon48.png</button>
+  <button onclick="download(128)">下载 icon128.png</button>
+  
+  <script>
+    function drawIcon(size) {
+      const canvas = document.getElementById('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      
+      // 渐变背景
+      const gradient = ctx.createLinearGradient(0, 0, size, size)
+      gradient.addColorStop(0, '#667eea')
+      gradient.addColorStop(1, '#764ba2')
+      
+      // 圆角矩形
+      const radius = size * 0.18
+      ctx.beginPath()
+      ctx.roundRect(0, 0, size, size, radius)
+      ctx.fillStyle = gradient
+      ctx.fill()
+      
+      // 书签图标
+      ctx.fillStyle = 'white'
+      const cx = size / 2
+      const cy = size * 0.35
+      const triSize = size * 0.25
+      
+      ctx.beginPath()
+      ctx.moveTo(cx, cy - triSize * 0.6)
+      ctx.lineTo(cx + triSize * 0.8, cy + triSize * 0.6)
+      ctx.lineTo(cx - triSize * 0.8, cy + triSize * 0.6)
+      ctx.closePath()
+      ctx.fill()
+      
+      // 横线
+      const lineY1 = size * 0.58
+      const lineY2 = size * 0.72
+      const lineH = size * 0.06
+      const lineR = lineH / 2
+      
+      ctx.beginPath()
+      ctx.roundRect(size * 0.25, lineY1, size * 0.5, lineH, lineR)
+      ctx.globalAlpha = 0.9
+      ctx.fill()
+      
+      ctx.beginPath()
+      ctx.roundRect(size * 0.25, lineY2, size * 0.35, lineH, lineR)
+      ctx.globalAlpha = 0.7
+      ctx.fill()
+      
+      return canvas
+    }
+    
+    function download(size) {
+      const canvas = drawIcon(size)
+      const link = document.createElement('a')
+      link.download = `icon${size}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
+    
+    // 预览
+    drawIcon(128)
+  </script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG 转 PNG 工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .preview {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 24px;
+      padding: 24px;
+      background: #f9fafb;
+      border-radius: 12px;
+    }
+    .preview-item {
+      text-align: center;
+    }
+    .preview-item img {
+      display: block;
+      margin: 0 auto 8px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      background: white;
+    }
+    .preview-item span {
+      font-size: 12px;
+      color: #666;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .status {
+      text-align: center;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .instructions {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 24px;
+      font-size: 13px;
+      color: #1e40af;
+      line-height: 1.6;
+    }
+    .instructions strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #1e3a8a;
+    }
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 SVG 转 PNG 工具</h1>
+    <p class="subtitle">为浏览器扩展生成图标</p>
+
+    <div class="preview">
+      <div class="preview-item">
+        <img id="preview16" width="16" height="16" alt="16x16">
+        <span>16x16</span>
+      </div>
+      <div class="preview-item">
+        <img id="preview48" width="48" height="48" alt="48x48">
+        <span>48x48</span>
+      </div>
+      <div class="preview-item">
+        <img id="preview128" width="128" height="128" alt="128x128">
+        <span>128x128</span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="convertBtn">生成并下载 PNG 图标</button>
+    <button class="btn btn-primary" id="downloadAllBtn" style="display:none;">下载全部图标</button>
+
+    <div id="status"></div>
+
+    <div class="instructions">
+      <strong>📝 使用说明：</strong>
+      1. 点击"生成并下载 PNG 图标"按钮<br>
+      2. 浏览器会自动下载 3 个 PNG 文件<br>
+      3. 将下载的文件放到 extension/icons/ 目录<br>
+      4. 重新加载浏览器扩展即可
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#grad)"/>
+  <path d="M64 28L84 58H44L64 28Z" fill="white"/>
+  <rect x="34" y="68" width="60" height="8" rx="4" fill="white" opacity="0.9"/>
+  <rect x="34" y="84" width="40" height="8" rx="4" fill="white" opacity="0.7"/>
+</svg>`;
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const convertBtn = document.getElementById('convertBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const statusDiv = document.getElementById('status');
+
+    const sizes = [
+      { size: 16, name: 'icon16.png', preview: 'preview16' },
+      { size: 48, name: 'icon48.png', preview: 'preview48' },
+      { size: 128, name: 'icon128.png', preview: 'preview128' }
+    ];
+
+    let generatedImages = [];
+
+    function showStatus(message, type = 'success') {
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.style.display = 'block';
+    }
+
+    function svgToDataURL(svgString) {
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+    }
+
+    async function convertSVGtoPNG(size) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const svgDataURL = svgToDataURL(svgContent);
+        
+        img.onload = () => {
+          canvas.width = size;
+          canvas.height = size;
+          ctx.clearRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('转换失败'));
+            }
+          }, 'image/png');
+        };
+        
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = svgDataURL;
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function generatePreviews() {
+      for (const { size, preview } of sizes) {
+        try {
+          const blob = await convertSVGtoPNG(size);
+          const url = URL.createObjectURL(blob);
+          document.getElementById(preview).src = url;
+        } catch (error) {
+          console.error(`预览生成失败 (${size}x${size}):`, error);
+        }
+      }
+    }
+
+    convertBtn.addEventListener('click', async () => {
+      convertBtn.disabled = true;
+      convertBtn.textContent = '生成中...';
+      generatedImages = [];
+
+      try {
+        for (const { size, name } of sizes) {
+          const blob = await convertSVGtoPNG(size);
+          generatedImages.push({ blob, name });
+          
+          // 自动下载
+          await new Promise(resolve => setTimeout(resolve, 300));
+          downloadBlob(blob, name);
+        }
+
+        showStatus('✅ 成功生成并下载 3 个 PNG 图标！', 'success');
+        convertBtn.textContent = '重新生成';
+        downloadAllBtn.style.display = 'block';
+      } catch (error) {
+        showStatus('❌ 生成失败: ' + error.message, 'error');
+        convertBtn.textContent = '重试';
+      } finally {
+        convertBtn.disabled = false;
+      }
+    });
+
+    downloadAllBtn.addEventListener('click', () => {
+      generatedImages.forEach(({ blob, name }) => {
+        downloadBlob(blob, name);
+      });
+      showStatus('✅ 已重新下载所有图标！', 'success');
+    });
+
+    // 页面加载时生成预览
+    generatePreviews();
+  </script>
+</body>
+</html>
